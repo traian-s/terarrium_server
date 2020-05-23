@@ -20,5 +20,12 @@
   "bugs": {
     "url": "https://github.com/traian-s/terarrium_server/issues"
   },
-  "homepage": "https://github.com/traian-s/terarrium_server#readme"
+  "homepage": "https://github.com/traian-s/terarrium_server#readme",
+  "dependencies": {
+    "express": "^4.17.1",
+    "python-shell": "^2.0.1"
+  },
+  "devDependencies": {
+    "eslint": "^7.1.0"
+  }
 }
