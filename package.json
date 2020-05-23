@@ -1,0 +1,24 @@
+{
+  "name": "terrarium_server",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/traian-s/terarrium_server.git"
+  },
+  "keywords": [
+    "node",
+    "python",
+    "automation"
+  ],
+  "author": "Traian Stanciu",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/traian-s/terarrium_server/issues"
+  },
+  "homepage": "https://github.com/traian-s/terarrium_server#readme"
+}
