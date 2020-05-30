@@ -32,7 +32,8 @@ app.get('/get/status', function (req, res) {
 
 app.get('/get/temperature', function (req, res) {
   const options = {
-    mode: 'json'
+   pythonPath: '/usr/bin/python', 
+   mode: 'text'
   };
   PythonShell.run('python_scripts/temp.py', options, function (err, results) {
     if (err) throw err;
