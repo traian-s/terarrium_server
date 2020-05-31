@@ -13,11 +13,11 @@ app.get('/set/:module/:value', function (req, res) {
     args: [...Object.values(req.params)]
   };
   PythonShell.run('python_scripts/set_pins.py', options, function (err, results) {
-    if (err) throw err;
-    console.log('results: %j', results);
-  });
+    if (err) res.status(400).end(JSON.stringify({"error":err}));
+    res.end(JSON.stringify(results)); 
+ });
 
-  res.sendFile(path.join(__dirname + '/index.html'));
+ //res.sendFile(path.join(__dirname + '/index.html'));
 });
 
 app.get('/get/status', function (req, res) {
