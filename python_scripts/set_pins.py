@@ -1,6 +1,7 @@
 import sys
 import RPi.GPIO as GPIO
 from pins import OUTPUT
+import json
 
 GPIO.setmode(GPIO.BCM)
 GPIO.setwarnings(False)
@@ -16,5 +17,9 @@ if value == 'on':
 if value == 'off':
     signal = GPIO.HIGH
 
-GPIO.setup(pin, GPIO.OUT)
-GPIO.output(pin, signal)
+try:
+    GPIO.setup(pin, GPIO.OUT)
+    GPIO.output(pin, signal)
+    print(json.dumps({"module":module, "value": value}))
+except NameError:
+    print(json.dumps({"error": True, "type": "Illegal module or pin"}))
