@@ -1,8 +1,11 @@
 const express = require('express');
 const { PythonShell } = require('python-shell');
 const app = express();
+const cors = require('cors');
 const port = 3000;
 const path = require('path');
+
+app.use(cors());
 
 app.get('/', function (req, res) {
   res.sendFile(path.join(__dirname + '/index.html'));

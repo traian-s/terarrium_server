@@ -9,6 +9,6 @@ pin_status = {}
 
 for pin in OUTPUT:
     GPIO.setup(OUTPUT[pin], GPIO.OUT)
-    pin_status[pin] = GPIO.input(OUTPUT[pin])
+    pin_status[pin] = 'on' if GPIO.input(OUTPUT[pin]) == 0 else 'off'
 
 print(json.dumps(pin_status))
