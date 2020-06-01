@@ -1,28 +1,23 @@
 const express = require('express');
 const { PythonShell } = require('python-shell');
-
-const app = express();
 const cors = require('cors');
-
-const port = 3000;
 const path = require('path');
 const moment = require('moment');
+const redis = require('async-redis');
 
-const redis = require('redis');
-
+const port = 3000;
+const app = express();
 const client = redis.createClient();
-const asyncRedis = require('async-redis');
 
-const asyncRedisClient = asyncRedis.decorate(client);
 
 client.on('error', (error) => {
   console.error(error);
 });
 
-const lightsJob = setInterval(async () => {
-  const startHour = await asyncRedisClient.get('lightStartHours');
-  const startMinutes = await asyncRedisClient.get('lightStartMinutes');
-  const duration = await asyncRedisClient.get('lightDuration');
+setInterval(async () => {
+  const startHour = await client.get('lightStartHours');
+  const startMinutes = await client.get('lightStartMinutes');
+  const duration = await client.get('lightDuration');
 
   if (!startHour || !startMinutes || !duration) return;
 
@@ -34,18 +29,16 @@ const lightsJob = setInterval(async () => {
 
   if (start.valueOf() <= now.valueOf() && now.valueOf() <= stop.valueOf()) {
     const options = {
-      mode: 'json', // way of communication between node & python
       args: ['lights', 'on'], // turn lights on
     };
-    PythonShell.run('python_scripts/set_pins.py', options);
+    PythonShell.run('python_scripts/set_pins.py', options, (err) => console.log(err));
   } else {
     const options = {
-      mode: 'json', // way of communication between node & python
-      args: ['lights', 'off'], // turn lights on
+      args: ['lights', 'off'], // turn lights off
     };
-    PythonShell.run('python_scripts/set_pins.py', options);
+    PythonShell.run('python_scripts/set_pins.py', options, (err) => console.log(err));
   }
-}, 1000);
+}, 60000);
 
 app.use(cors());
 
@@ -86,20 +79,43 @@ app.get('/get/temperature', (req, res) => {
   });
 });
 
-app.get('/redis/set/test/:value', (req, res) => {
-  console.log('%j', req);
-  client.set('test', req.params.value, redis.print);
-  res.send(200);
+app.get('/get/daily/lights', async (req, res) => {
+  const startHour = await client.get('lightStartHours');
+  const startMinutes = await client.get('lightStartMinutes');
+  const duration = await client.get('lightDuration');
+  res.json({ startHour, startMinutes, duration });
 });
 
-app.get('/redis/get/', (req, res) => {
-  console.log('%j', req);
-  client.get('test', redis.print);
-  res.send(200);
+app.get('/set/daily/lights/:lightStartHours/:lightStartMinutes/:lightDuration', async (req, res) => {
+  const { lightStartHours, lightStartMinutes, lightDuration } = req.params;
+  const errorArray = [];
+
+  if (!(Number.isInteger(Number(lightStartHours)) && lightStartHours >= 0 && lightStartHours < 24)) {
+    errorArray.push('Hour must be between 0-24');
+  }
+  if (!(Number.isInteger(Number(lightStartMinutes)) && lightStartMinutes >= 0 && lightStartMinutes < 59)) {
+    errorArray.push('Minutes must be between 0-60');
+  }
+  if (!(Number.isInteger(Number(lightDuration)) && lightDuration > 0 && lightDuration < 1440)) {
+    errorArray.push('Duration must be over a minute and less than a day');
+  }
+  if (errorArray.length) {
+    res.json({ error: true, data: errorArray.join() });
+  } else {
+    await client.set('lightStartHours', lightStartHours);
+    await client.set('lightStartMinutes', lightStartMinutes);
+    await client.set('lightDuration', lightDuration);
+    res.sendStatus(200);
+  }
 });
 
-app.get('/stopinterval', (req, res) => {
-  clearInterval(lightsJob);
+app.get('/clear/daily/:task', (req, res) => {
+  const { task } = req.params;
+  if (task === 'lights') {
+    client.del('lightStartHours');
+    client.del('lightStartMinutes');
+    client.del('lightDuration');
+  }
   res.send(200);
 });
 
