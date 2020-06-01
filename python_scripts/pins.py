@@ -1,3 +1,4 @@
+# python_scripts/pins.py
 OUTPUT = {
     "lights": 17,
     "cooler": 27,
