@@ -22,8 +22,9 @@ setInterval(() => {
     const startHour = await client.get(`${task}_startHour`);
     const startMinutes = await client.get(`${task}_startMinute`);
     const duration = await client.get(`${task}_duration`);
+    const status = await client.get(`${task}_status`);
 
-    if (!startHour || !startMinutes || !duration) return;
+    if (!startHour || !startMinutes || !duration || status !== 'on') return;
 
     const start = moment().hours(startHour).minutes(startMinutes).seconds(0)
       .milliseconds(0);
@@ -92,13 +93,16 @@ app.get('/get/task/:task', async (req, res, next) => {
 
   if (!possibleTasks.includes(task)) {
     res.sendStatus(400);
-    next();
+    return next();
   }
 
+  const status = await client.get(`${task}_status`);
   const startHour = await client.get(`${task}_startHour`);
   const startMinutes = await client.get(`${task}_startMinute`);
   const duration = await client.get(`${task}_duration`);
-  res.json({ startHour, startMinutes, duration });
+  res.json({
+    task, status, startHour, startMinutes, duration,
+  });
 });
 
 app.post('/set/task/', async (req, res) => {
@@ -134,13 +138,24 @@ app.post('/clear/task/', (req, res, next) => {
 
   if (!possibleTasks.includes(task)) {
     res.sendStatus(400);
-    next();
+    return next();
   }
 
   client.del(`${task}_startHour`);
   client.del(`${task}_startMinute`);
   client.del(`${task}_duration`);
-  res.send(200);
+  res.sendStatus(200);
+});
+
+app.post('/toggle/task/', (req, res, next) => {
+  const { task, status } = req.body;
+
+  if (!possibleTasks.includes(task) || !['on', 'off'].includes(status)) {
+    res.sendStatus(400);
+    return next();
+  }
+  client.set(`${task}_status`, status);
+  res.sendStatus(200);
 });
 
 
