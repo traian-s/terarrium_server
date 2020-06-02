@@ -4,6 +4,7 @@ const cors = require('cors');
 const path = require('path');
 const moment = require('moment');
 const redis = require('async-redis');
+const bodyParser = require('body-parser')
 
 const port = 3000;
 const app = express();
@@ -41,6 +42,9 @@ setInterval(async () => {
 }, 60000);
 
 app.use(cors());
+app.use(bodyParser.urlencoded({
+  extended: true,
+}));
 
 app.get('/', (req, res) => {
   res.sendFile(path.join(`${__dirname}/index.html`));
@@ -86,8 +90,8 @@ app.get('/get/daily/lights', async (req, res) => {
   res.json({ startHour, startMinutes, duration });
 });
 
-app.get('/set/daily/lights/:lightStartHours/:lightStartMinutes/:lightDuration', async (req, res) => {
-  const { lightStartHours, lightStartMinutes, lightDuration } = req.params;
+app.post('/set/daily/lights/', async (req, res) => {
+  const { lightStartHours, lightStartMinutes, lightDuration } = req.body;
   const errorArray = [];
 
   if (!(Number.isInteger(Number(lightStartHours)) && lightStartHours >= 0 && lightStartHours < 24)) {
@@ -109,8 +113,8 @@ app.get('/set/daily/lights/:lightStartHours/:lightStartMinutes/:lightDuration', 
   }
 });
 
-app.get('/clear/daily/:task', (req, res) => {
-  const { task } = req.params;
+app.post('/clear/daily/:task', (req, res) => {
+  const { task } = req.body;
   if (task === 'lights') {
     client.del('lightStartHours');
     client.del('lightStartMinutes');

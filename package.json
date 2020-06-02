@@ -23,6 +23,7 @@
   "homepage": "https://github.com/traian-s/terarrium_server#readme",
   "dependencies": {
     "async-redis": "^1.1.7",
+    "body-parser": "^1.19.0",
     "cors": "^2.8.5",
     "express": "^4.17.1",
     "moment": "^2.26.0",
