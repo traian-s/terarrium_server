@@ -4,42 +4,46 @@ const cors = require('cors');
 const path = require('path');
 const moment = require('moment');
 const redis = require('async-redis');
-const bodyParser = require('body-parser')
+const bodyParser = require('body-parser');
 
 const port = 3000;
 const app = express();
 const client = redis.createClient();
+
+const possibleTasks = ['lights', 'water'];
 
 
 client.on('error', (error) => {
   console.error(error);
 });
 
-setInterval(async () => {
-  const startHour = await client.get('lightStartHours');
-  const startMinutes = await client.get('lightStartMinutes');
-  const duration = await client.get('lightDuration');
+setInterval(() => {
+  possibleTasks.map(async (task) => {
+    const startHour = await client.get(`${task}_startHour`);
+    const startMinutes = await client.get(`${task}_startMinute`);
+    const duration = await client.get(`${task}_duration`);
 
-  if (!startHour || !startMinutes || !duration) return;
+    if (!startHour || !startMinutes || !duration) return;
 
-  const start = moment().hours(startHour).minutes(startMinutes).seconds(0)
-    .milliseconds(0);
+    const start = moment().hours(startHour).minutes(startMinutes).seconds(0)
+      .milliseconds(0);
 
-  const stop = moment(start).add(duration, 'minutes');
-  const now = moment();
+    const stop = moment(start).add(duration, 'minutes');
+    const now = moment();
 
-  if (start.valueOf() <= now.valueOf() && now.valueOf() <= stop.valueOf()) {
-    const options = {
-      args: ['lights', 'on'], // turn lights on
-    };
-    PythonShell.run('python_scripts/set_pins.py', options, (err) => console.log(err));
-  } else {
-    const options = {
-      args: ['lights', 'off'], // turn lights off
-    };
-    PythonShell.run('python_scripts/set_pins.py', options, (err) => console.log(err));
-  }
-}, 60000);
+    if (start.valueOf() <= now.valueOf() && now.valueOf() <= stop.valueOf()) {
+      const options = {
+        args: [task, 'on'], // turn lights on
+      };
+      PythonShell.run('python_scripts/set_pins.py', options, (err) => console.log(err));
+    } else {
+      const options = {
+        args: [task, 'off'], // turn lights off
+      };
+      PythonShell.run('python_scripts/set_pins.py', options, (err) => console.log(err));
+    }
+  });
+}, 10 * 1000);
 
 app.use(cors());
 app.use(bodyParser.urlencoded({
@@ -57,7 +61,7 @@ app.get('/set/:module/:value', (req, res) => {
   };
   PythonShell.run('python_scripts/set_pins.py', options, (err, results) => {
     if (err) res.status(400).json(err); // if script failed send status code 400
-    res.json(results[0]); // if the script ran send the results as json
+    else res.json(results[0]); // if the script ran send the results as json
   });
 });
 
@@ -68,7 +72,7 @@ app.get('/get/status', (req, res) => {
   };
   PythonShell.run('python_scripts/pins_status.py', options, (err, results) => {
     if (err) res.status(400).json(err); // if script failed send status code 400
-    res.json(results[0]); // if the script ran send the results as json
+    else res.json(results[0]); // if the script ran send the results as json
   });
 });
 
@@ -79,48 +83,65 @@ app.get('/get/temperature', (req, res) => {
   };
   PythonShell.run('python_scripts/temp.py', options, (err, results) => {
     if (err) res.status(400).json(err); // if script failed send status code 400
-    res.json(results[0]); // if the script ran send the results as json
+    else res.json(results[0]); // if the script ran send the results as json
   });
 });
 
-app.get('/get/daily/lights', async (req, res) => {
-  const startHour = await client.get('lightStartHours');
-  const startMinutes = await client.get('lightStartMinutes');
-  const duration = await client.get('lightDuration');
+app.get('/get/task/:task', async (req, res, next) => {
+  const { task } = req.params;
+
+  if (!possibleTasks.includes(task)) {
+    res.sendStatus(400);
+    next();
+  }
+
+  const startHour = await client.get(`${task}_startHour`);
+  const startMinutes = await client.get(`${task}_startMinute`);
+  const duration = await client.get(`${task}_duration`);
   res.json({ startHour, startMinutes, duration });
 });
 
-app.post('/set/daily/lights/', async (req, res) => {
-  const { lightStartHours, lightStartMinutes, lightDuration } = req.body;
+app.post('/set/task/', async (req, res) => {
+  const {
+    startHour, startMinute, duration, task,
+  } = req.body;
   const errorArray = [];
 
-  if (!(Number.isInteger(Number(lightStartHours)) && lightStartHours >= 0 && lightStartHours < 24)) {
+  if (!possibleTasks.includes(task)) {
+    errorArray.push(`Task must be one of ${possibleTasks.join()}`);
+  }
+  if (!(Number.isInteger(Number(startHour)) && startHour >= 0 && startHour < 24)) {
     errorArray.push('Hour must be between 0-24');
   }
-  if (!(Number.isInteger(Number(lightStartMinutes)) && lightStartMinutes >= 0 && lightStartMinutes < 59)) {
+  if (!(Number.isInteger(Number(startMinute)) && startMinute >= 0 && startMinute < 59)) {
     errorArray.push('Minutes must be between 0-60');
   }
-  if (!(Number.isInteger(Number(lightDuration)) && lightDuration > 0 && lightDuration < 1440)) {
+  if (!(Number.isInteger(Number(duration)) && duration > 0 && duration < 1440)) {
     errorArray.push('Duration must be over a minute and less than a day');
   }
   if (errorArray.length) {
     res.json({ error: true, data: errorArray.join() });
   } else {
-    await client.set('lightStartHours', lightStartHours);
-    await client.set('lightStartMinutes', lightStartMinutes);
-    await client.set('lightDuration', lightDuration);
+    await client.set(`${task}_startHour`, startHour);
+    await client.set(`${task}_startMinute`, startMinute);
+    await client.set(`${task}_duration`, duration);
     res.sendStatus(200);
   }
 });
 
-app.post('/clear/daily/:task', (req, res) => {
+app.post('/clear/task/', (req, res, next) => {
   const { task } = req.body;
-  if (task === 'lights') {
-    client.del('lightStartHours');
-    client.del('lightStartMinutes');
-    client.del('lightDuration');
+
+  if (!possibleTasks.includes(task)) {
+    res.sendStatus(400);
+    next();
   }
+
+  client.del(`${task}_startHour`);
+  client.del(`${task}_startMinute`);
+  client.del(`${task}_duration`);
   res.send(200);
 });
+
 
 app.listen(port, () => console.log(`Example app listening at http://localhost:${port}`));
